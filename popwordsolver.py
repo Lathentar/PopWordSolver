@@ -3,6 +3,7 @@
 import sys, getopt, copy
 
 skWordScoresByLength = [0, 0, 0, 1, 2, 4, 7, 11, 17, 25, 35, 50, 70, 100, 140, 200, 270, 300, 400, 500, 600, 700]
+sBestScore = 0
 
 def printusage():
    print 'test.py -w <worldlistfile> -i <inputfile>' 
@@ -155,7 +156,8 @@ def board_to_string(board):
          str += c
    return str
 
-def solve_board(numRows, numColumns, board, wordlist, board_mem):
+def solve_board(numRows, numColumns, board, wordlist, board_mem, currentScore):
+   global sBestScore
    boardAsString = board_to_string(board)
    if boardAsString not in board_mem:
       foundWords = find_words_in_board(numRows, numColumns, board, wordlist)
@@ -167,26 +169,31 @@ def solve_board(numRows, numColumns, board, wordlist, board_mem):
          miniPair = minimize_board(numRows, numColumns, wordBoardPair[1])
          newBoard = miniPair[0]
          numLettersRemaining = miniPair[1]
+         wordScore = skWordScoresByLength[len(wordBoardPair[0])]
+         newCurrentScore = currentScore + wordScore
 
          if numLettersRemaining == 0:
-            print 'Complete', boardAsString, 'Word', wordBoardPair[0], ' WordScore', skWordScoresByLength[len(wordBoardPair[0])]
-            return [ (wordBoardPair, skWordScoresByLength[len(wordBoardPair[0])]) ]
-         elif numLettersRemaining >= 3:         
-            solvedBoard = solve_board(numRows, numColumns, newBoard, wordlist, board_mem);
+            if newCurrentScore > sBestScore:
+               sBestScore = newCurrentScore
+            print 'Complete', boardAsString, 'Word', wordBoardPair[0], ' WordScore', wordScore, 'TotalScore', newCurrentScore, ' BestScore', sBestScore
+            return [ (wordBoardPair, wordScore) ]
+         elif numLettersRemaining >= 3:
+            if numLettersRemaining >= len(skWordScoresByLength) or skWordScoresByLength[numLettersRemaining] + newCurrentScore > sBestScore:
+               solvedBoard = solve_board(numRows, numColumns, newBoard, wordlist, board_mem, newCurrentScore);
 
-            if solvedBoard != None:
-               oldScore = solvedBoard[0][1]
-               newScore = skWordScoresByLength[len(wordBoardPair[0])] + oldScore
+               if solvedBoard != None:
+                  solvedScore = solvedBoard[0][1]
+                  newScore = wordScore + solvedScore
 
-               if board_mem[boardAsString] is None:
-                  board_mem[boardAsString] = [(wordBoardPair, newScore)] + solvedBoard
-               else:
-                  # replace if the score is higher
-                  if board_mem[boardAsString][1] < newScore:
+                  if board_mem[boardAsString] is None:
                      board_mem[boardAsString] = [(wordBoardPair, newScore)] + solvedBoard
+                  else:
+                     # replace if the score is higher
+                     if board_mem[boardAsString][0][1] < newScore:
+                        board_mem[boardAsString] = [(wordBoardPair, newScore)] + solvedBoard
 
       if board_mem[boardAsString] is not None:
-         print boardAsString, 'Word', board_mem[boardAsString][0][0][0], ' WordScore', skWordScoresByLength[len(board_mem[boardAsString][0][0][0])], 'TotalScore', board_mem[boardAsString][0][1]
+         print boardAsString, 'Word', board_mem[boardAsString][0][0][0], ' WordScore', skWordScoresByLength[len(board_mem[boardAsString][0][0][0])], 'TotalScore', board_mem[boardAsString][0][1], ' BestScore', sBestScore
 
    return board_mem[boardAsString]
 
@@ -219,7 +226,7 @@ def solve_popwords(wordlist, inputfile, justFindBestWord):
       print
 
    if justFindBestWord == False:
-      solvedBoard = solve_board(numRows, numColumns, startingBoard, wordlist, {})
+      solvedBoard = solve_board(numRows, numColumns, startingBoard, wordlist, {}, 0)
       stepNum = 1
       if solvedBoard is not None:
          for step in solvedBoard:
